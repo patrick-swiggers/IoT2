@@ -1,0 +1,4 @@
+# data types and class names
+MyWifi	KEYWORD1
+# functions and methods
+myIP	KEYWORD2
