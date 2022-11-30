@@ -2,7 +2,7 @@
   Cursus Internet Of Things 2
 
   Geschreven voor het ESP32 Development board
-  Auteur: Patrick De Boeck
+  Developer: Patrick
 *******************************************************************/
 
 #define STR_HELPER(x) #x
@@ -13,7 +13,6 @@
 #include <BluetoothSerial.h>
 #include <map>
 
-
 #if !defined(CONFIG_BT_ENABLED) || !defined(CONFIG_BLUEDROID_ENABLED)
 #error Bluetooth is not enabled! Please run `make menuconfig` to and enable it
 #endif
@@ -23,20 +22,26 @@
 #endif
 
 BluetoothSerial SerialBT;
-BTAdvertisedDevice* pDevice = NULL; // pointer naar een Bluetooth device
-BTScanResults* pDeviceList = NULL; // pointer naar een lijst van ontdekte bluetooth apparaten
+BTAdvertisedDevice* pDevice = NULL;   // pointer naar een Bluetooth device
+BTScanResults* pDeviceList = NULL;    // pointer naar een lijst van ontdekte bluetooth apparaten
 std::map<int, std::string> channels;  // dit is eenmap van key/values voor de beschikbare kanalen
-BTAddress addr;       // bluetooth adres waarnaar we gaan verbinden
-int channel = 0;      // het geselecteerde kanaal waar we naar gaan verbinden
+BTAddress addr;                       // bluetooth adres waarnaar we gaan verbinden
+int channel = 0;                      // het geselecteerde kanaal waar we naar gaan verbinden
+/*
+|| KNOP
+*/
+byte knopPin = 23;
+byte knopStatus;
 
 struct RemoteDevice {
   BTAdvertisedDevice* pRemoteDevice;
   int remoteChannel;
 };
-RemoteDevice remoteDevice;    // maak een variabele aan
-std::map<int, RemoteDevice> keuzelijst; // hier gaan we de devices opslaan met welke we kunnen verbinden
+
+RemoteDevice remoteDevice;               // maak een variabele aan
+std::map<int, RemoteDevice> keuzelijst;  // hier gaan we de devices opslaan met welke we kunnen verbinden
 int aantalRemoteDevices = 0;
-int keuze=0;
+int keuze = 0;
 
 void btAdvertisedDeviceFound(BTAdvertisedDevice* pDevice) {
   Serial.print("Gevonden apparaat:");
@@ -45,7 +50,10 @@ void btAdvertisedDeviceFound(BTAdvertisedDevice* pDevice) {
 
 void setup() {
   Serial.begin(115200);
-  if (! SerialBT.begin(COMPILE_ID, true) ) {  // We zijn nu een master (client)
+
+  pinMode(knopPin, INPUT_PULLUP);
+
+  if (!SerialBT.begin(COMPILE_ID, true)) {  // We zijn nu een master (client)
     Serial.println("========== serialBT mislukt!");
     abort();
   }
@@ -67,31 +75,30 @@ void setup() {
         Serial.println(pDevice->toString().c_str());
         channels = SerialBT.getChannels(pDevice->getAddress());
         Serial.println(String(channels.size()) + " kana(a)l(en) gevonden");
-        for (auto it = channels.begin(); it != channels.end(); it++) { // bekijk de hele set
-          Serial.print(it->first);      // dit is de key
-          Serial.println(" - " + String(it->second.c_str())); // dit is de value
+        for (auto it = channels.begin(); it != channels.end(); it++) {  // bekijk de hele set
+          Serial.print(it->first);                                      // dit is de key
+          Serial.println(" - " + String(it->second.c_str()));           // dit is de value
         }
 
         if (channels.size() > 0) {
-          aantalRemoteDevices++;    // we hebben een kandidaat gevonden
+          aantalRemoteDevices++;  // we hebben een kandidaat gevonden
           remoteDevice.pRemoteDevice = pDevice;
-          remoteDevice.remoteChannel = channels.begin()->first; // selecteer het eerste vrije kanaal
+          remoteDevice.remoteChannel = channels.begin()->first;  // selecteer het eerste vrije kanaal
           keuzelijst[aantalRemoteDevices] = remoteDevice;
         }
-
       }
 
-      if (aantalRemoteDevices) {    // er zijn dus geschikte bluetooth devices
+      if (aantalRemoteDevices) {  // er zijn dus geschikte bluetooth devices
         Serial.println("Maak een keuze:");
         for (auto it = keuzelijst.begin(); it != keuzelijst.end(); it++) {
           Serial.print(it->first);
           Serial.print("  ->  ");
           Serial.println(it->second.pRemoteDevice->toString().c_str());
         }
-        while (keuze == 0) {    // wacht tot er een keuze gemaakt is
-          if (Serial.available()) { // kijk of er iets ingetikt wordt
-            keuze = Serial.parseInt();  // kijk wat er ingetikt is
-            if ((keuze > 0) and (keuze <= aantalRemoteDevices)) { // geldige invoer?
+        while (keuze == 0) {                                       // wacht tot er een keuze gemaakt is
+          if (Serial.available()) {                                // kijk of er iets ingetikt wordt
+            keuze = Serial.parseInt();                             // kijk wat er ingetikt is
+            if ((keuze > 0) and (keuze <= aantalRemoteDevices)) {  // geldige invoer?
               addr = keuzelijst[keuze].pRemoteDevice->getAddress();
               channel = keuzelijst[keuze].remoteChannel;
               Serial.print("Verbinden met adres:");
@@ -101,8 +108,7 @@ void setup() {
               if (SerialBT.connect(addr, channel, ESP_SPP_SEC_NONE, ESP_SPP_ROLE_MASTER)) {
                 Serial.println("Verbinding Gelukt");
               }
-            }
-            else {
+            } else {
               Serial.println("Ongeldige keuze, probeer opnieuw");
               keuze = 0;  // ongeldige keuze, wacht dus op een nieuwe keuze
             }
@@ -120,9 +126,21 @@ void setup() {
 String sendData = "Ik ben " + String(COMPILE_ID);
 
 void loop() {
+
   if (SerialBT.connected()) {
     Serial.println("tx: " + sendData);
-    SerialBT.println(sendData);
+
+	// code voor de knop
+    knopStatus = digitalRead(knopPin);
+    if (knopStatus == LOW) {
+      Serial.println("tx: aan");
+      SerialBT.println("aan");
+    } else {
+      Serial.println("tx: uit");
+      SerialBT.println("uit");
+    }
+
+	// response van de server
     if (SerialBT.available()) {
       Serial.print("rx: ");
       while (SerialBT.available()) {
@@ -130,8 +148,7 @@ void loop() {
       }
       Serial.println();
     }
-  }
-  else {
+  } else {
     Serial.println("not connected");
   }
   delay(1000);
