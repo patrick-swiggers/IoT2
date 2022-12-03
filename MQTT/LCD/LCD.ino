@@ -12,7 +12,7 @@
 
 char mqttServer[] = "test.mosquitto.org";
 unsigned int mqttPort = 1883; //Dit is de default MQTT poort
-char mqttClientID[] = "LPNIOT2";
+char mqttClientID[] = "LPNIOT2-LCD";
 char mqttTopic[] = "cvo/iot2/ps/tempc";
 String RXBericht; // Het ontvangen MQTT bericht
 WiFiClient mijnTCPClient;
